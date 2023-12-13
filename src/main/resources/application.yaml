@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: huobanpipeibackend #项目名称
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/yupi?characterEncoding=utf8
+    username: root
+    password: root
+  session:
+    timeout: 8640 #session过期时间(一天)
+server:
+  port: 8888 #端口号
+  servlet:
+    context-path: /api
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false #关闭mybatis-plus自动将下划线转化为驼峰的功能
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除的实体字段名(since 3.3.0,配置后可以忽略不配置步骤2)
+      logic-delete-value: 1 # 逻辑已删除值(默认为 1)
+      logic-not-delete-value: 0 # 逻辑未删除值(默认为 0)
