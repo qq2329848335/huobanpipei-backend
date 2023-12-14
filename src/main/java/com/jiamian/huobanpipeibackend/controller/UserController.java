@@ -72,6 +72,36 @@ public class UserController {
         return ResultUtil.success(result);
     }
 
+    @PostMapping("/searchUserByTags")
+    public BaseResponse<List<User>> searchUserByTags(List<String> tagList,HttpServletRequest request) {
+        //判断是否已登录
+        boolean login = isLogin(request);
+        if (!login){
+            //未登录
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        if (request == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<User> userList = userService.searchUserByTags(tagList);
+        return ResultUtil.success(userList);
+    }
+
+    @PostMapping("/searchUserByTagsOr")
+    public BaseResponse<List<User>> searchUserByTagsOr(List<String> tagList,HttpServletRequest request) {
+        //判断是否已登录
+        boolean login = isLogin(request);
+        if (!login){
+            //未登录
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        if (request == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<User> userList = userService.searchUserByTagsOr(tagList);
+        return ResultUtil.success(userList);
+    }
+
 
 
     @GetMapping("/userSearch")

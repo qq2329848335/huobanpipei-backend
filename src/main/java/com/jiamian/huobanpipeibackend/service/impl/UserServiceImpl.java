@@ -2,16 +2,17 @@ package com.jiamian.huobanpipeibackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
+import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.mapper.UserMapper;
 import com.jiamian.huobanpipeibackend.model.entity.User;
-import com.jiamian.huobanpipeibackend.constant.UserConstant;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -47,15 +48,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             //为空
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号、密码、校验密码都不能为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号、密码、校验密码都不能为空");
         }
         if (userAccount.length() < 4) {
             //账号长度小于4位
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号长度不能小于4位");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不能小于4位");
         }
         if (userPassword.length() < 8) {
             //密码长度小于8位
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度不能小于8位");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于8位");
         }
 
 
@@ -63,12 +64,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             //包含特殊字符
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号不能包含特殊字符");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能包含特殊字符");
         }
 
         if (!userPassword.equals(checkPassword)) {
             //两次密码不一致
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次密码不一致");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次密码不一致");
         }
 
 
@@ -78,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LambdaQueryWrapper<User> eq = lambda.eq(User::getUserAccount, userAccount);
         if (userMapper.selectCount(eq) > 0) {
             //账号已经存在
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号已经存在");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已经存在");
         }
 
 
@@ -93,7 +94,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         int insert = userMapper.insert(user);
         if (insert <= 0) {
             //数据库出现问题,插入失败
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"用户注册时，数据库插入数据失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "用户注册时，数据库插入数据失败");
         }
         return user.getId();
     }
@@ -102,15 +103,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public User doLogin(String userAccount, String userPassword, HttpServletRequest request) {
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             //为空
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号、密码、校验密码都不能为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号、密码、校验密码都不能为空");
         }
         if (userAccount.length() < 4) {
             //账号长度小于4位
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号长度不能小于4位");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不能小于4位");
         }
         if (userPassword.length() < 8) {
             //密码长度小于8位
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度不能小于8位");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于8位");
         }
 
 
@@ -118,7 +119,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             //包含特殊字符
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号不能包含特殊字符");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能包含特殊字符");
         }
 
         //2.校验密码是否正确,要和数据库中的密文密码去对比
@@ -127,12 +128,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
         LambdaQueryWrapper<User> lambda = userQueryWrapper.lambda();
         LambdaQueryWrapper<User> eq = lambda.eq(User::getUserAccount, userAccount)
-                .eq(User::getUserPassword,encryptPassword);
+                .eq(User::getUserPassword, encryptPassword);
         User user = userMapper.selectOne(eq);
         if (user == null) {
             //登录失败,账号不存在 或密码错误
             log.info("Login failed, userAccount does not exist or userPassword is incorrect!");
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"登录失败,账号不存在 或密码错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "登录失败,账号不存在 或密码错误");
         }
 
 
@@ -143,7 +144,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         //4.记录用户的登录态(session)
         HttpSession session = request.getSession();
-        session.setAttribute(UserConstant.USER_LOGIN_STATE,safetyUser);
+        session.setAttribute(UserConstant.USER_LOGIN_STATE, safetyUser);
 
 
         return safetyUser;
@@ -172,7 +173,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public User getSafetyUser(User user) {
-        if (user==null){
+        if (user == null) {
             return null;
         }
         User safetyUser = new User();
@@ -187,6 +188,60 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safetyUser.setCreateTime(user.getCreateTime());
         safetyUser.setUpdateTime(user.getUpdateTime());
         safetyUser.setUserRole(user.getUserRole());
+        safetyUser.setTags(user.getTags());
         return safetyUser;
+    }
+
+    /**
+     * 根据标签搜索用户(包含所有搜索标签)
+     * @param tagList 要求用户包含的标签列表
+     * @return 脱敏后用户集合
+     */
+    @Override
+    public List<User> searchUserByTags(List<String> tagList) {
+        if (CollectionUtils.isEmpty(tagList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索标签不能为空");
+        }
+        LambdaQueryWrapper<User> userLambdaQueryWrapper = new QueryWrapper<User>().lambda();
+        //拼接and查询 like '%Java' and like '%Python%'
+        for (String tag : tagList) {
+            if (StringUtils.isNotEmpty(tag)) {
+                userLambdaQueryWrapper.like(User::getTags, tag);
+            }
+        }
+        List<User> userList = userMapper.selectList(userLambdaQueryWrapper);
+        //脱敏
+        return userList.stream().map(user -> {
+            user.setUserPassword(null);
+            return user;
+        }).collect(Collectors.toList());
+
+
+    }
+
+    /**
+     * 根据标签搜索用户(只要包含一个标签就行)
+     * @param tagList 要求用户包含的标签列表
+     * @return 脱敏后用户集合
+     */
+    @Override
+    public List<User> searchUserByTagsOr(List<String> tagList) {
+        if (CollectionUtils.isEmpty(tagList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索标签不能为空");
+        }
+        LambdaQueryWrapper<User> userLambdaQueryWrapper = new QueryWrapper<User>().lambda();
+        //拼接and查询 like '%Java' or like '%Python%'
+        for (String tag : tagList) {
+            if (StringUtils.isNotEmpty(tag)) {
+                userLambdaQueryWrapper.like(User::getTags, tag);
+                userLambdaQueryWrapper.or();
+            }
+        }
+        List<User> userList = userMapper.selectList(userLambdaQueryWrapper);
+        //脱敏
+        return userList.stream().map(user -> {
+            user.setUserPassword(null);
+            return user;
+        }).collect(Collectors.toList());
     }
 }

@@ -1,14 +1,9 @@
 package com.jiamian.huobanpipeibackend.service;
 
-import com.jiamian.huobanpipeibackend.model.entity.User;
-import com.jiamian.huobanpipeibackend.mapper.UserMapper;
-import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.springframework.http.HttpRequest;
+import com.jiamian.huobanpipeibackend.model.entity.User;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import java.util.List;
 
 /**
@@ -56,7 +51,24 @@ public interface UserService extends IService<User> {
     /**
      * 用户脱敏操作
      * @param user
-     * @return
+     * @return 脱敏后的用户
      */
     User getSafetyUser(User user);
+
+
+
+    /**
+     * 根据标签搜索用户(包含所有搜索标签)
+     * @param tagList 要求用户包含的标签列表
+     * @return 脱敏后用户集合
+     */
+    List<User> searchUserByTags(List<String> tagList);
+
+
+    /**
+     * 根据标签搜索用户(只要包含一个标签就行)
+     * @param tagList 要求用户包含的标签列表
+     * @return 脱敏后用户集合
+     */
+    List<User> searchUserByTagsOr(List<String> tagList);
 }
