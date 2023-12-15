@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: dev #配置以开发环境启动
   application:
     name: huobanpipeibackend #项目名称
   datasource:
@@ -8,6 +10,9 @@ spring:
     password: root
   session:
     timeout: 8640 #session过期时间(一天)
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 server:
   port: 8888 #端口号
   servlet:
