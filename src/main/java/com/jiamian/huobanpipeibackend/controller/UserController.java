@@ -11,6 +11,7 @@ import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.request.UserLoginRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -29,6 +30,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/user")
+@CrossOrigin(origins = {"http://localhost:5173"})
 public class UserController {
 
     @Resource
@@ -72,8 +74,8 @@ public class UserController {
         return ResultUtil.success(result);
     }
 
-    @PostMapping("/searchUserByTags")
-    public BaseResponse<List<User>> searchUserByTags(List<String> tagList,HttpServletRequest request) {
+    @GetMapping("/search/tagsAnd")
+    public BaseResponse<List<User>> searchUserByTagsAnd(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
         //判断是否已登录
         boolean login = isLogin(request);
         if (!login){
@@ -83,21 +85,28 @@ public class UserController {
         if (request == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        List<User> userList = userService.searchUserByTags(tagList);
+        if (CollectionUtils.isEmpty(tagList)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
+        }
+        List<User> userList = userService.searchUserByTagAnd(tagList);
         return ResultUtil.success(userList);
     }
 
-    @PostMapping("/searchUserByTagsOr")
-    public BaseResponse<List<User>> searchUserByTagsOr(List<String> tagList,HttpServletRequest request) {
+    @GetMapping("/search/tagsOr")
+    public BaseResponse<List<User>> searchUserByTagsOr(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
+        if (CollectionUtils.isEmpty(tagList)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
+        }
         //判断是否已登录
-        boolean login = isLogin(request);
+        /*boolean login = isLogin(request);
         if (!login){
             //未登录
             throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }
+        }*/
         if (request == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+
         List<User> userList = userService.searchUserByTagsOr(tagList);
         return ResultUtil.success(userList);
     }

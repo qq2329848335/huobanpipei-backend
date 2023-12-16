@@ -189,6 +189,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safetyUser.setUpdateTime(user.getUpdateTime());
         safetyUser.setUserRole(user.getUserRole());
         safetyUser.setTags(user.getTags());
+        safetyUser.setProfile(user.getProfile());
         return safetyUser;
     }
 
@@ -198,7 +199,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return 脱敏后用户集合
      */
     @Override
-    public List<User> searchUserByTags(List<String> tagList) {
+    public List<User> searchUserByTagAnd(List<String> tagList) {
         if (CollectionUtils.isEmpty(tagList)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索标签不能为空");
         }

@@ -62,7 +62,7 @@ public interface UserService extends IService<User> {
      * @param tagList 要求用户包含的标签列表
      * @return 脱敏后用户集合
      */
-    List<User> searchUserByTags(List<String> tagList);
+    List<User> searchUserByTagAnd(List<String> tagList);
 
 
     /**

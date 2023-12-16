@@ -68,6 +68,11 @@ public class User implements Serializable {
     private String avatarUrl;
 
     /**
+     * 个人简介
+     */
+    private String profile;
+
+    /**
      * 状态 0 - 正常
      */
     private Integer userStatus;
