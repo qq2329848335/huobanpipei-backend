@@ -245,4 +245,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return user;
         }).collect(Collectors.toList());
     }
+
+    @Override
+    public int userUpdate(User user, HttpServletRequest request) {
+        if (user==null||user.getId()==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = this.getLoginUser(request);
+        if (loginUser.getId()!=user.getId()&&!isAdmin(request)){
+            //不是当前用户修改自己的信息 并且不是管理员
+            throw new BusinessException(ErrorCode.NOT_AUTH);
+        }
+        int i = userMapper.updateById(user);
+        if (i<=0){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新数据失败");
+        }
+        return i;
+    }
+
+
+    @Override
+    public User getLoginUser(HttpServletRequest request){
+        if (request==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Object loginUser = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        if (loginUser==null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        return (User)loginUser;
+    }
+
+
+    @Override
+    public boolean isAdmin(HttpServletRequest request){
+        //校验权限
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User user = (User) userObj;
+        if (user==null || UserConstant.MANAGER_ROLE.equals(user.getUserRole())){
+            log.info("未登录或无管理员权限");
+            return false;
+        }
+        return true;
+    }
+
+
+    @Override
+    public void checkIsLogin(HttpServletRequest request){
+        User loginUser = this.getLoginUser(request);
+    }
 }

@@ -1,6 +1,9 @@
 package com.jiamian.huobanpipeibackend.controller;
 
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiamian.huobanpipeibackend.common.BaseResponse;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
 import com.jiamian.huobanpipeibackend.common.ResultUtil;
@@ -11,12 +14,16 @@ import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.request.UserLoginRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 /**
@@ -35,6 +42,9 @@ public class UserController {
 
     @Resource
     UserService userService;
+
+    @Resource
+    RedisTemplate redisTemplate;
 
     @PostMapping("/userRegister")
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
@@ -76,53 +86,70 @@ public class UserController {
 
     @GetMapping("/search/tagsAnd")
     public BaseResponse<List<User>> searchUserByTagsAnd(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
-        //判断是否已登录
-        boolean login = isLogin(request);
-        if (!login){
-            //未登录
-            throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }
         if (request == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         if (CollectionUtils.isEmpty(tagList)){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
         }
+        //校验是否已登录
+        //userService.checkIsLogin(request);
         List<User> userList = userService.searchUserByTagAnd(tagList);
         return ResultUtil.success(userList);
     }
 
     @GetMapping("/search/tagsOr")
     public BaseResponse<List<User>> searchUserByTagsOr(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
+        if (request == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
         if (CollectionUtils.isEmpty(tagList)){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
         }
         //判断是否已登录
-        /*boolean login = isLogin(request);
-        if (!login){
-            //未登录
-            throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }*/
-        if (request == null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
+        //userService.checkIsLogin(request);
 
         List<User> userList = userService.searchUserByTagsOr(tagList);
         return ResultUtil.success(userList);
+    }
+
+    @GetMapping("/recommend")
+    public BaseResponse<Page<User>> userRecommend(long pageSize,long pageNum,HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        //从缓存中取
+        String redisKey = String.format("yupao:user:recommend:%s",loginUser.getId());
+        ValueOperations valueOperations = redisTemplate.opsForValue();
+        Page<User> userPage = (Page<User>)valueOperations.get(redisKey);
+        if (userPage==null){
+            //无缓存,查数据库
+            QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+            userPage = userService.page(new Page<User>(pageNum, pageSize), userQueryWrapper);
+            //写入缓存,10s过期
+            try {
+                valueOperations.set(redisKey,userPage,60000, TimeUnit.MILLISECONDS);
+            } catch (Exception e){
+                log.error("redis set key error",e);
+            }
+        }
+        //脱敏
+        List<User> records = userPage.getRecords();
+        List<User> userList = records.stream().map(user ->
+            userService.getSafetyUser(user)
+        ).collect(Collectors.toList());
+        userPage.setRecords(userList);
+
+        return ResultUtil.success(userPage);
     }
 
 
 
     @GetMapping("/userSearch")
     public BaseResponse<List<User>> userSearch(String username, HttpServletRequest request) {
-        //判断是否已登录
-        boolean login = isLogin(request);
-        if (!login){
-            //未登录
-            throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }
+        //校验是否已登录
+        userService.checkIsLogin(request);
+
         //校验权限
-        if (!isAdmin(request)){
+        if (!userService.isAdmin(request)){
             log.info("/userSearch  无管理员权限");
             throw new BusinessException(ErrorCode.NOT_AUTH);
         }
@@ -133,14 +160,10 @@ public class UserController {
 
     @DeleteMapping("/userDelete")
     public BaseResponse<Boolean> userDelete(Long id, HttpServletRequest request) {
-        //判断是否已登录
-        boolean login = isLogin(request);
-        if (!login){
-            //未登录
-            throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }
+        //校验是否已登录
+        userService.checkIsLogin(request);
         //校验权限
-        if (!isAdmin(request)){
+        if (!userService.isAdmin(request)){
             log.info("/userDelete  无管理员权限");
             throw new BusinessException(ErrorCode.NOT_AUTH);
         }
@@ -152,7 +175,7 @@ public class UserController {
         return ResultUtil.success(result);
     }
 
-    @PostMapping("/getCurrentUser")
+    @GetMapping("/getCurrentUser")
     public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         User currentUser = (User) userObj;
@@ -168,38 +191,21 @@ public class UserController {
         return ResultUtil.success(safetyUser);
     }
 
-
-    /**
-     * 判断是否已登录
-     * @param request
-     * @return true --已登录， false --未登录
-     */
-    private boolean isLogin(HttpServletRequest request){
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User user = (User) userObj;
+    @PostMapping("/update")
+    public BaseResponse<Integer> userUpdate(@RequestBody User user,HttpServletRequest request) {
+        //1.校验参数
         if (user==null){
-            //未登录
-            return false;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"没有传要修改的用户");
         }
-        return true;
+        return ResultUtil.success(userService.userUpdate(user,request));
+
     }
 
 
-    /**
-     * 校验是否是管理员
-     * @param request
-     * @return true --是 ，false --不是
-     */
-    private boolean isAdmin(HttpServletRequest request){
-        //校验权限
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User user = (User) userObj;
-        if (user==null || UserConstant.MANAGER_ROLE.equals(user.getUserRole())){
-            log.info("未登录或无管理员权限");
-            return false;
-        }
-        return true;
-    }
+
+
+
+
 }
 
 

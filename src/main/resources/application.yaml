@@ -10,9 +10,14 @@ spring:
     password: root
   session:
     timeout: 8640 #session过期时间(一天)
+    store-type: redis #将session存储到redis
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
+  redis: #配置redis连接
+    host: 192.168.88.188
+    port: 6379
+    database: 0
 server:
   port: 8888 #端口号
   servlet:
