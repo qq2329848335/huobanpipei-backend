@@ -1,9 +1,12 @@
 package com.jiamian.huobanpipeibackend.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.jiamian.huobanpipeibackend.model.dto.TeamQuery;
 import com.jiamian.huobanpipeibackend.model.entity.Team;
+import com.jiamian.huobanpipeibackend.model.vo.TeamUserVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * <p>
@@ -22,4 +25,11 @@ public interface TeamService extends IService<Team> {
      * @return
      */
     boolean addTeam(Team team, HttpServletRequest request);
+
+    /**
+     * 查找队伍
+     * @param teamQuery
+     * @return
+     */
+    List<TeamUserVO> listTeams(TeamQuery teamQuery, HttpServletRequest request);
 }

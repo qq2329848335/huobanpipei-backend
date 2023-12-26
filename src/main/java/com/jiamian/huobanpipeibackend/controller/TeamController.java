@@ -10,6 +10,7 @@ import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.model.dto.TeamQuery;
 import com.jiamian.huobanpipeibackend.model.entity.Team;
 import com.jiamian.huobanpipeibackend.model.request.TeamAddRequest;
+import com.jiamian.huobanpipeibackend.model.vo.TeamUserVO;
 import com.jiamian.huobanpipeibackend.service.TeamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -87,7 +88,7 @@ public class TeamController {
     }
 
 
-    @GetMapping("/list")
+    /*@GetMapping("/list")
     public BaseResponse<List<Team>> selectTeam(@RequestBody TeamQuery teamQuery){
         if (teamQuery == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -96,6 +97,15 @@ public class TeamController {
         BeanUtils.copyProperties(teamQuery,team);
         QueryWrapper<Team> teamQueryWrapper = new QueryWrapper<>(team);
         List<Team> teamList = teamService.list(teamQueryWrapper);
+        return ResultUtil.success(teamList);
+    }*/
+
+    @GetMapping("/list")
+    public BaseResponse<List<TeamUserVO>> selectTeam(@RequestBody TeamQuery teamQuery,HttpServletRequest request){
+        if (teamQuery == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<TeamUserVO> teamList = teamService.listTeams(teamQuery,request);
         return ResultUtil.success(teamList);
     }
 
