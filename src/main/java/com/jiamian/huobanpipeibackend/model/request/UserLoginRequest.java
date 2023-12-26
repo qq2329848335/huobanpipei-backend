@@ -4,11 +4,10 @@
  * Date: 2023/12/2
  * Time: 14:16
  */
-package com.jiamian.huobanpipeibackend.request;
+package com.jiamian.huobanpipeibackend.model.request;
 
 import lombok.Data;
 
-import javax.servlet.http.HttpServletRequest;
 import java.io.Serializable;
 
 @Data

@@ -1,6 +1,8 @@
 package com.jiamian.huobanpipeibackend.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.jiamian.huobanpipeibackend.common.BaseResponse;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 
 import javax.servlet.http.HttpServletRequest;
@@ -79,6 +81,24 @@ public interface UserService extends IService<User> {
      * @return 修改后的用户信息
      */
     int userUpdate(User user, HttpServletRequest request);
+
+    /**
+     * 获取推荐用户(先从缓存查, 若缓存无,就去查数据库)
+     * @param pageSize
+     * @param pageNum
+     * @param request
+     * @return
+     */
+    BaseResponse<Page<User>> userRecommend(long pageSize, long pageNum, HttpServletRequest request);
+
+    /**
+     * 从数据库获取目标用户的推荐用户
+     * @param pageNum
+     * @param pageSize
+     * @param userId 目标用户的id
+     * @return
+     */
+    Page<User> userRecommendByDatabase(long pageNum,long pageSize,  long userId);
 
     /**
      * 获取当前登录用户

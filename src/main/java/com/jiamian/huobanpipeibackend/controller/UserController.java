@@ -2,17 +2,16 @@ package com.jiamian.huobanpipeibackend.controller;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiamian.huobanpipeibackend.common.BaseResponse;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
 import com.jiamian.huobanpipeibackend.common.ResultUtil;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
-import com.jiamian.huobanpipeibackend.request.UserRegisterRequest;
+import com.jiamian.huobanpipeibackend.model.request.UserRegisterRequest;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.model.entity.User;
-import com.jiamian.huobanpipeibackend.request.UserLoginRequest;
+import com.jiamian.huobanpipeibackend.model.request.UserLoginRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;

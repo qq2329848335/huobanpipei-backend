@@ -2,8 +2,11 @@ package com.jiamian.huobanpipeibackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.jiamian.huobanpipeibackend.common.BaseResponse;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
+import com.jiamian.huobanpipeibackend.common.ResultUtil;
 import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.mapper.UserMapper;
@@ -11,6 +14,8 @@ import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
@@ -19,6 +24,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -37,6 +43,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     UserMapper userMapper;
+
+    @Resource
+    RedisTemplate redisTemplate;
 
     /**
      * 盐值,混淆密码
@@ -261,6 +270,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新数据失败");
         }
         return i;
+    }
+
+
+    @Override
+    public BaseResponse<Page<User>> userRecommend(long pageSize, long pageNum, HttpServletRequest request) {
+        User loginUser = this.getLoginUser(request);
+        //从缓存中取
+        String redisKey = String.format("yupao:user:recommend:%s",loginUser.getId());
+        ValueOperations valueOperations = redisTemplate.opsForValue();
+        Page<User> userPage = (Page<User>)valueOperations.get(redisKey);
+        if (userPage==null){
+            //无缓存,查数据库
+            userPage = this.userRecommendByDatabase(pageNum,pageSize,loginUser.getId());
+            //写入缓存,10s过期
+            try {
+                valueOperations.set(redisKey,userPage,60000, TimeUnit.MILLISECONDS);
+            } catch (Exception e){
+                log.error("redis set key error",e);
+            }
+        }
+        //脱敏
+        List<User> records = userPage.getRecords();
+        List<User> userList = records.stream().map(user ->
+                this.getSafetyUser(user)
+        ).collect(Collectors.toList());
+        userPage.setRecords(userList);
+
+        return ResultUtil.success(userPage);
+    }
+
+
+    @Override
+    public Page<User> userRecommendByDatabase(long pageNum, long pageSize, long userId) {
+        //无缓存,查数据库
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        Page<User> userPage = this.page(new Page<User>(pageNum, pageSize), userQueryWrapper);
+        return userPage;
     }
 
 

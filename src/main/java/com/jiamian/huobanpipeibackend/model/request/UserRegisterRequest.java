@@ -4,7 +4,7 @@
  * Date: 2023/12/1
  * Time: 19:29
  */
-package com.jiamian.huobanpipeibackend.request;
+package com.jiamian.huobanpipeibackend.model.request;
 
 import lombok.Data;
 

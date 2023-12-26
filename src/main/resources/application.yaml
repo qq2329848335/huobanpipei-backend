@@ -18,6 +18,7 @@ spring:
     host: 192.168.88.188
     port: 6379
     database: 0
+
 server:
   port: 8888 #端口号
   servlet:
