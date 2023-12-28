@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
+import com.jiamian.huobanpipeibackend.constant.UserConstant;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.model.dto.TeamQuery;
 import com.jiamian.huobanpipeibackend.model.entity.Team;
@@ -11,6 +12,7 @@ import com.jiamian.huobanpipeibackend.mapper.TeamMapper;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.model.entity.UserTeam;
 import com.jiamian.huobanpipeibackend.model.enums.TeamStatusEnum;
+import com.jiamian.huobanpipeibackend.model.request.TeamUpdateRequest;
 import com.jiamian.huobanpipeibackend.model.vo.TeamUserVO;
 import com.jiamian.huobanpipeibackend.model.vo.UserVO;
 import com.jiamian.huobanpipeibackend.service.TeamService;
@@ -23,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
@@ -102,7 +103,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new QueryWrapper<UserTeam>().lambda();
         lambdaQueryWrapper.eq(UserTeam::getUserId, loginUserId.longValue());
         int count = userTeamService.count(lambdaQueryWrapper);
-        if (count > 5) {
+        if (count > UserConstant.MAX_CRATE_TEAM_NUMBER) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "每个用户最多创建5个队伍");
         }
         //4. 插入队伍信息到队伍列表
@@ -193,5 +194,35 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
 
 
         return teamUserVOList;
+    }
+
+
+    @Override
+    public boolean updateTeam(TeamUpdateRequest team, HttpServletRequest request) {
+        if (team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long id = team.getId();
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Team oldTeam = this.getById(id);
+        if (oldTeam == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR, "队伍不存在");
+        }
+        User loginUser = userService.getLoginUser(request);
+        // 只有管理员或者队伍的创建者可以修改
+        if (oldTeam.getUserId() != loginUser.getId() && !userService.isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NOT_AUTH);
+        }
+        TeamStatusEnum statusEnum = TeamStatusEnum.getTeamStatusEnum(team.getStatus());
+        if (statusEnum.equals(TeamStatusEnum.SECRET)) {
+            if (StringUtils.isBlank(team.getPassword())) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "加密房间必须要设置密码");
+            }
+        }
+        Team updateTeam = new Team();
+        BeanUtils.copyProperties(team, updateTeam);
+        return this.updateById(updateTeam);
     }
 }

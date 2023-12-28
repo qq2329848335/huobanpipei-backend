@@ -10,6 +10,7 @@ import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.model.dto.TeamQuery;
 import com.jiamian.huobanpipeibackend.model.entity.Team;
 import com.jiamian.huobanpipeibackend.model.request.TeamAddRequest;
+import com.jiamian.huobanpipeibackend.model.request.TeamUpdateRequest;
 import com.jiamian.huobanpipeibackend.model.vo.TeamUserVO;
 import com.jiamian.huobanpipeibackend.service.TeamService;
 import lombok.extern.slf4j.Slf4j;
@@ -67,11 +68,11 @@ public class TeamController {
 
 
     @PostMapping("/update")
-    public BaseResponse<Boolean> updateTeam(@RequestBody Team team){
-        if (team == null){
+    public BaseResponse<Boolean> updateteam(@RequestBody TeamUpdateRequest teamUpdateRequest,HttpServletRequest request){
+        if (teamUpdateRequest == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean result = teamService.updateById(team);
+        boolean result = teamService.updateTeam(teamUpdateRequest,request);
         if (!result){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新数据异常");
         }

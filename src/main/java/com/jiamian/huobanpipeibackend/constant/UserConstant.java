@@ -16,4 +16,14 @@ public interface UserConstant {
      * 默认角色
      */
     static final Integer DEFAULT_ROLE = 0;
+
+    /**
+     * 用户最多可加入的队伍数量
+     */
+    static final Integer MAX_JOIN_TEAM_NUMBER = 3;
+
+    /**
+     * 每个用户最多可创建的队伍数
+     */
+    static final Integer MAX_CRATE_TEAM_NUMBER =5;
 }
