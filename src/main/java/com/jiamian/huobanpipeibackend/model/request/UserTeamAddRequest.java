@@ -6,6 +6,8 @@
  */
 package com.jiamian.huobanpipeibackend.model.request;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -15,7 +17,7 @@ public class UserTeamAddRequest implements Serializable {
 
     private static final long serialVersionUID = -380233498095407123L;
 
-    private Long teamId;
+    private String teamId;
 
     private String password;
 }

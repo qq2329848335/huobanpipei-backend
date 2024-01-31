@@ -9,10 +9,12 @@ import com.jiamian.huobanpipeibackend.common.ResultUtil;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.model.dto.TeamQuery;
 import com.jiamian.huobanpipeibackend.model.entity.Team;
+import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.model.request.TeamAddRequest;
 import com.jiamian.huobanpipeibackend.model.request.TeamUpdateRequest;
 import com.jiamian.huobanpipeibackend.model.vo.TeamUserVO;
 import com.jiamian.huobanpipeibackend.service.TeamService;
+import com.jiamian.huobanpipeibackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -38,22 +40,33 @@ public class TeamController {
     @Resource
     TeamService teamService;
 
+    @Resource
+    UserService userService;
+
     @PostMapping("/add")
-    public BaseResponse<Boolean> addTeam(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest request){
-        if (teamAddRequest==null){
+    public BaseResponse<Boolean> addTeam(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest request) {
+        if (teamAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        //2. 是否登录？
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
         Team team = new Team();
-        BeanUtils.copyProperties(teamAddRequest,team);
-        boolean save = teamService.addTeam(team,request);
-        if (!save){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"数据插入异常");
+        BeanUtils.copyProperties(teamAddRequest, team);
+        //默认当前登录用户是队长
+        Long userId = loginUser.getId();
+        team.setUserId(userId);
+        boolean save = teamService.addTeam(team,userId);
+        if (!save) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据插入异常");
         }
         return ResultUtil.success(true);
     }
 
 
-    @PostMapping("/delete")
+    /*@PostMapping("/delete")
     public BaseResponse<Boolean> deleteTeam(long id){
         if (id<=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"id必须大于0");
@@ -63,25 +76,39 @@ public class TeamController {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"删除数据异常");
         }
         return ResultUtil.success(true);
+    }*/
+
+    @PostMapping("/delete")
+    public BaseResponse<Boolean> deleteTeam(Long teamId, HttpServletRequest request) {
+        if (teamId == null || teamId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean result = teamService.deleteTeam(teamId, request);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "解散队伍失败");
+        }
+        return ResultUtil.success(true);
     }
 
 
-
     @PostMapping("/update")
-    public BaseResponse<Boolean> updateteam(@RequestBody TeamUpdateRequest teamUpdateRequest,HttpServletRequest request){
-        if (teamUpdateRequest == null){
+    public BaseResponse<Boolean> updateteam(@RequestBody TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
+        if (teamUpdateRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean result = teamService.updateTeam(teamUpdateRequest,request);
-        if (!result){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新数据异常");
+        boolean result = teamService.updateTeam(teamUpdateRequest, request);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新数据异常");
         }
         return ResultUtil.success(true);
     }
 
     @GetMapping("/get")
-    public BaseResponse<Team> getTeamById(long id){
-        if (id<=0){
+    public BaseResponse<Team> getTeamById(long id) {
+        if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Team team = teamService.getById(id);
@@ -102,23 +129,35 @@ public class TeamController {
     }*/
 
     @GetMapping("/list")
-    public BaseResponse<List<TeamUserVO>> selectTeam(@RequestBody TeamQuery teamQuery,HttpServletRequest request){
-        if (teamQuery == null){
+    public BaseResponse<List<TeamUserVO>> selectTeam(TeamQuery teamQuery, HttpServletRequest request) {
+        if (teamQuery == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        List<TeamUserVO> teamList = teamService.listTeams(teamQuery,request);
+        List<TeamUserVO> teamList = teamService.listTeams(teamQuery, request);
         return ResultUtil.success(teamList);
     }
 
     @GetMapping("/list/page")
-    public BaseResponse<Page<Team>> selectTeamByPage(@RequestBody TeamQuery teamQuery){
-        if (teamQuery == null){
+    public BaseResponse<Page<Team>> selectTeamByPage(TeamQuery teamQuery) {
+        if (teamQuery == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Team team = new Team();
-        BeanUtils.copyProperties(teamQuery,team);
+        BeanUtils.copyProperties(teamQuery, team);
         QueryWrapper<Team> teamQueryWrapper = new QueryWrapper<>(team);
         Page<Team> page = teamService.page(new Page<Team>(teamQuery.getPageNum(), teamQuery.getPageSize()), teamQueryWrapper);
         return ResultUtil.success(page);
+    }
+
+    @PostMapping("/list/update")
+    public BaseResponse<Boolean> updateTeam(TeamUpdateRequest teamUpdateRequest,HttpServletRequest request){
+        if (teamUpdateRequest==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = teamService.updateTeam(teamUpdateRequest, request);
+        return ResultUtil.success(true);
     }
 }

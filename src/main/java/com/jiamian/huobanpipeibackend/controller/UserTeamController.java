@@ -9,9 +9,7 @@ import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.model.request.UserTeamAddRequest;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import com.jiamian.huobanpipeibackend.service.UserTeamService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -34,7 +32,7 @@ public class UserTeamController {
     UserService userService;
 
     @PostMapping("/add")
-    public BaseResponse<Boolean> addUserTeam(UserTeamAddRequest userTeamAddRequest, HttpServletRequest request){
+    public BaseResponse<Boolean> addUserTeam(@RequestBody UserTeamAddRequest userTeamAddRequest, HttpServletRequest request){
         if (userTeamAddRequest==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -44,6 +42,22 @@ public class UserTeamController {
         boolean result = userTeamService.addUserTeam(userTeamAddRequest,request);
         if (!result){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"数据插入异常");
+        }
+        return ResultUtil.success(true);
+    }
+
+    @PutMapping("/delete")
+    public BaseResponse<Boolean> deleteUserTeam(Long teamId,HttpServletRequest request){
+        if (teamId == null||teamId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请输入正确的队伍id");
+        }
+        if (request==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean result = userTeamService.deleteUserTeam(teamId,loginUser.getId());
+        if (!result){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
         return ResultUtil.success(true);
     }

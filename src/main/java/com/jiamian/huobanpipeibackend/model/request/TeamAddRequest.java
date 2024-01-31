@@ -57,4 +57,9 @@ public class TeamAddRequest implements Serializable {
      */
     private Integer status;
 
+    /**
+     * 队伍密码
+     */
+    private String password;
+
 }

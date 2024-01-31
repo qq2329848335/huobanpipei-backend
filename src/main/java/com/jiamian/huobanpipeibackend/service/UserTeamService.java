@@ -18,16 +18,42 @@ public interface UserTeamService extends IService<UserTeam> {
 
     /**
      * 用户加入队伍
-     * @return
+     *
      * @param userTeamAddRequest
      * @param request
+     * @return
      */
     boolean addUserTeam(UserTeamAddRequest userTeamAddRequest, HttpServletRequest request);
 
     /**
+     * 统计加入该队伍的人数
+     * @param teamId
+     * @return
+     */
+    int countByTeamId(Long teamId);
+
+    /**
      * 统计用户加入的队伍数量
+     *
      * @param loginUserId
      * @return
      */
     int countByUserId(Long loginUserId);
+
+    /**
+     * 用户退出队伍
+     *
+     * @param teamId 队伍id
+     * @param userId 用户id
+     * @return
+     */
+    boolean deleteUserTeam(Long teamId, Long userId);
+
+    /**
+     * 验证用户是否是队长
+     * @param teamId
+     * @param userId
+     * @return
+     */
+    boolean isTeamLeader(long teamId, Long userId);
 }

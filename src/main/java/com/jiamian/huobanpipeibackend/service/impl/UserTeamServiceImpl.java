@@ -16,10 +16,12 @@ import com.jiamian.huobanpipeibackend.service.TeamService;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import com.jiamian.huobanpipeibackend.service.UserTeamService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * <p>
@@ -36,7 +38,7 @@ public class UserTeamServiceImpl extends ServiceImpl<UserTeamMapper, UserTeam> i
     UserTeamMapper userTeamMapper;
 
     @Resource
-    TeamMapper teamService;
+    TeamMapper teamMapper;
 
     @Resource
     UserService userService;
@@ -51,13 +53,13 @@ public class UserTeamServiceImpl extends ServiceImpl<UserTeamMapper, UserTeam> i
         if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Long teamId = userTeamAddRequest.getTeamId();
+        Long teamId = Long.parseLong(userTeamAddRequest.getTeamId());
         if (teamId == null || teamId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要加入的队伍");
         }
         //2. 队伍是否存在？
-//        Team team = teamService.getById(teamId);
-        Team team = teamService.selectById(teamId);
+//        Team team = teamMapper.getById(teamId);
+        Team team = teamMapper.selectById(teamId);
         if (team == null) {
             throw new BusinessException(ErrorCode.NULL_ERROR, "队伍不存在");
         }
@@ -115,9 +117,82 @@ public class UserTeamServiceImpl extends ServiceImpl<UserTeamMapper, UserTeam> i
     }
 
     @Override
+    public int countByTeamId(Long teamId) {
+        LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        userTeamLambdaQueryWrapper.eq(UserTeam::getTeamId, teamId);
+        return this.count(userTeamLambdaQueryWrapper);
+    }
+
+    @Override
     public int countByUserId(Long loginUserId) {
         LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
         userTeamLambdaQueryWrapper.eq(UserTeam::getUserId, loginUserId);
         return this.count(userTeamLambdaQueryWrapper);
+    }
+
+    @Override
+    @Transactional()
+    public boolean deleteUserTeam(Long teamId, Long userId) {
+        //1. 请求参数是否为空
+        if (teamId == null||teamId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (userId==null||userId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        //2. 验证队伍是否存在
+        Team team = teamMapper.selectById(teamId);
+        if (team==null){
+            throw new BusinessException(ErrorCode.NULL_ERROR);
+        }
+        //3. 验证我是否已加入队伍
+        LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        userTeamLambdaQueryWrapper.eq(UserTeam::getUserId,userId).eq(UserTeam::getTeamId,teamId);
+        UserTeam userTeam = userTeamMapper.selectOne(userTeamLambdaQueryWrapper);
+        if (userTeam==null){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"您未加入该队伍,无法退出");
+        }
+        //4. 如果队伍
+        //  a.  只剩一人，队伍解散
+        int numberOfUsersInTheTeam = this.countByTeamId(teamId);
+        if (numberOfUsersInTheTeam==1){
+            userTeamMapper.deleteById(userTeam.getId());
+            teamMapper.deleteById(teamId);
+            return true;
+        }
+        //  b.  还有其他人
+        //    ⅰ.  如果是队长退出队伍，权限转移给第二早加入的用户 —— 先来后到
+        //取更新时间最小的那条数据
+        boolean isTeamLeader = this.isTeamLeader(teamId,userId);
+        if (isTeamLeader){
+            userTeamMapper.deleteById(userTeam.getId());
+//            int i = 1 / 0;
+            LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper1 = new LambdaQueryWrapper<>();
+            //根据更新时间从小到大排序
+            userTeamLambdaQueryWrapper1.eq(UserTeam::getTeamId,teamId).orderByAsc(UserTeam::getUpdateTime);
+            List<UserTeam> userTeamList = this.list(userTeamLambdaQueryWrapper1);
+            Long newTeamLeaderId = userTeamList.get(0).getUserId();
+            //修改队伍的队长 为上面这个用户
+            team.setUserId(newTeamLeaderId);
+            teamMapper.updateById(team);
+            return true;
+        }
+        //   	 ⅱ.  非队长，自己退出队伍
+        userTeamMapper.deleteById(userTeam.getId());
+        return true;
+    }
+
+    @Override
+    public boolean isTeamLeader(long teamId, Long userId) {
+        if (teamId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (userId == null||userId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        LambdaQueryWrapper<Team> teamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        teamLambdaQueryWrapper.eq(Team::getUserId,userId).eq(Team::getId,teamId);
+        Team team = teamMapper.selectOne(teamLambdaQueryWrapper);
+        return team != null;
     }
 }

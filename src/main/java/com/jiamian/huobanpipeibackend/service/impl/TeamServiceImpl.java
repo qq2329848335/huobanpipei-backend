@@ -53,19 +53,15 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
 
     @Override
     @Transactional()
-    public boolean addTeam(Team team, HttpServletRequest request) {
+    public boolean addTeam(Team team, long userId) {
         //1. 请求参数是否为空？
         if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (request == null) {
+        if (userId <=0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         //2. 是否登录？
-        User loginUser = userService.getLoginUser(request);
-        if (loginUser == null) {
-            throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }
         //3. 校验信息
         //  a. 队伍人数 >=1且<=20(必选)
         Integer maxNum = Optional.ofNullable(team.getMaxNum()).orElse(0);
@@ -99,10 +95,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
             }
         }
         //  g. 校验用户最多创建5个队伍
-        Long loginUserId = loginUser.getId();
-        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new QueryWrapper<UserTeam>().lambda();
-        lambdaQueryWrapper.eq(UserTeam::getUserId, loginUserId.longValue());
-        int count = userTeamService.count(lambdaQueryWrapper);
+        LambdaQueryWrapper<Team> lambdaQueryWrapper = new QueryWrapper<Team>().lambda();
+        lambdaQueryWrapper.eq(Team::getUserId, userId);
+        int count = this.count(lambdaQueryWrapper);
         if (count > UserConstant.MAX_CRATE_TEAM_NUMBER) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "每个用户最多创建5个队伍");
         }
@@ -114,7 +109,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         }
         //5. 插入 用户-队伍关系到关系表中
         UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(loginUserId);
+        userTeam.setUserId(userId);
         userTeam.setTeamId(teamId);
         boolean saveResult = userTeamService.save(userTeam);
         if (!saveResult) {
@@ -224,5 +219,55 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         Team updateTeam = new Team();
         BeanUtils.copyProperties(team, updateTeam);
         return this.updateById(updateTeam);
+    }
+
+    @Override
+    public boolean isTeamLeader(long teamId,Long userId) {
+        if (teamId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (userId == null||userId<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        LambdaQueryWrapper<Team> teamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        teamLambdaQueryWrapper.eq(Team::getUserId,userId).eq(Team::getId,teamId);
+        Team team = teamMapper.selectOne(teamLambdaQueryWrapper);
+        return team != null;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteTeam(Long teamId, HttpServletRequest request) {
+        //1. 请求参数是否为空
+        if (teamId == null || teamId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        //2. 是否登录
+        userService.checkIsLogin(request);
+        //3. 队伍是否存在
+        Team team = this.getById(teamId);
+        if (team == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR, "队伍不存在");
+        }
+        //4. 是否是队长
+        User loginUser = userService.getLoginUser(request);
+        if (!team.getUserId().equals(loginUser.getId())){
+            throw new BusinessException(ErrorCode.NOT_AUTH,"您不是队长,无法解散队伍");
+        }
+        //5. 删除队伍&&删除所有加入队伍的关联信息
+        int i = teamMapper.deleteById(teamId);
+        if (i<0) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除队伍失败");
+        }
+        LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        userTeamLambdaQueryWrapper.eq(UserTeam::getTeamId,teamId);
+        boolean result = userTeamService.remove(userTeamLambdaQueryWrapper);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除队伍关联信息失败");
+        }
+        return true;
     }
 }

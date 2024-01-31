@@ -15,7 +15,10 @@ public enum TeamStatusEnum {
         this.text = text;
     }
 
-    public static TeamStatusEnum getTeamStatusEnum(int value){
+    public static TeamStatusEnum getTeamStatusEnum(Integer value){
+        if (value==null){
+            return null;
+        }
         TeamStatusEnum[] values = values();
         for (TeamStatusEnum teamStatusEnum : values) {
             if (teamStatusEnum.value==value){
