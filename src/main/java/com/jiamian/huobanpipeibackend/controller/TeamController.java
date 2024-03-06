@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -67,7 +68,7 @@ public class TeamController {
         //默认当前登录用户是队长
         Long userId = loginUser.getId();
         team.setUserId(userId);
-        boolean save = teamService.addTeam(team,userId);
+        boolean save = teamService.addTeam(team, userId);
         if (!save) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据插入异常");
         }
@@ -142,7 +143,24 @@ public class TeamController {
         if (teamQuery == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        //根据TeamQuery中的搜索条件查询
         List<TeamUserVO> teamList = teamService.listTeams(teamQuery, request);
+        final List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+        //判断当前用户是否已加入查询出的队伍
+        LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        try {
+            User loginUser = userService.getLoginUser(request);
+            userTeamLambdaQueryWrapper.eq(UserTeam::getUserId, loginUser.getId());
+            userTeamLambdaQueryWrapper.in(UserTeam::getTeamId, teamIdList);
+            List<UserTeam> userTeamList = userTeamService.list(userTeamLambdaQueryWrapper);
+            // 已加入的队伍 id 集合
+            Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
+            teamList.forEach(team -> {
+                boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
+                team.setHasJoin(hasJoin);
+            });
+        } catch (Exception e) {
+        }
         return ResultUtil.success(teamList);
     }
 
@@ -159,11 +177,11 @@ public class TeamController {
     }
 
     @PostMapping("/list/update")
-    public BaseResponse<Boolean> updateTeam(TeamUpdateRequest teamUpdateRequest,HttpServletRequest request){
-        if (teamUpdateRequest==null){
+    public BaseResponse<Boolean> updateTeam(TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
+        if (teamUpdateRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (request==null){
+        if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean b = teamService.updateTeam(teamUpdateRequest, request);
@@ -172,6 +190,7 @@ public class TeamController {
 
     /**
      * 获取当前用户已加入的队伍
+     *
      * @param teamQuery
      * @param request
      * @return
@@ -184,7 +203,7 @@ public class TeamController {
         User loginUser = userService.getLoginUser(request);
         //1.先从user_team表中查询出 用户加入的记录
         LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        userTeamLambdaQueryWrapper.eq(UserTeam::getUserId,loginUser.getId());
+        userTeamLambdaQueryWrapper.eq(UserTeam::getUserId, loginUser.getId());
         List<UserTeam> userTeamList = userTeamService.list(userTeamLambdaQueryWrapper);
         //2.从步骤1的结果中提取队伍id,再根据队伍id查队伍的信息,返回
         Map<Long, List<UserTeam>> listMap = userTeamList.stream()
@@ -199,6 +218,7 @@ public class TeamController {
 
     /**
      * 获取当前用户创建的队伍
+     *
      * @param teamQuery
      * @param request
      * @return
