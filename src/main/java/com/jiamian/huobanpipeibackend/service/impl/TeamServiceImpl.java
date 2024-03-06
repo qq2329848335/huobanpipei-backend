@@ -58,7 +58,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (userId <=0) {
+        if (userId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         //2. 是否登录？
@@ -129,35 +129,61 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         if (id != null && id > 0) {
             teamLambdaQueryWrapper.eq(Team::getId, id);
         }
+        List<Long> idList = teamQuery.getIdList();
+        /*if (idList != null) {
+            for (int i = 0; i < idList.size(); i++) {
+                Long id1 = idList.get(i);
+                if (id1 != null && id1 > 0) {
+                    if (i > 0) {
+                        teamLambdaQueryWrapper.or();
+                    }
+                    teamLambdaQueryWrapper.eq(Team::getId, id1);
+                }
+            }
+            idList.stream().forEach(id1 -> {
+
+            });
+        }*/
+        if (idList!=null){
+            teamLambdaQueryWrapper.in(Team::getId,idList);
+        }
         String name = teamQuery.getName();
         if (StringUtils.isNotBlank(name)) {
             teamLambdaQueryWrapper.like(Team::getName, name);
         }
         String description = teamQuery.getDescription();
         if (StringUtils.isNotBlank(description)) {
-            teamLambdaQueryWrapper.like(Team::getDescription, description);
+            teamLambdaQueryWrapper.or().like(Team::getDescription, description);
+        }
+        Long userId1 = teamQuery.getUserId();
+        if (userId1 != null && userId1 > 0) {
+            teamLambdaQueryWrapper.eq(Team::getUserId, userId1);
         }
         //搜索关键词（同时对队伍名称和描述搜索）
         String searchText = teamQuery.getSearchText();
         if (StringUtils.isNotBlank(searchText)) {
-            teamLambdaQueryWrapper.like(Team::getName, searchText).or().like(Team::getDescription, searchText);
+            teamLambdaQueryWrapper.and(eq ->eq.like(Team::getName, searchText).or().like(Team::getDescription, searchText));
             //写法二:teamLambdaQueryWrapper.and(qw ->{qw.like(Team::getName,searchText).or().like(Team::getDescription,searchText)});
         }
         Integer maxNum = teamQuery.getMaxNum();
         if (maxNum != null && maxNum >= 1) {
             teamLambdaQueryWrapper.eq(Team::getMaxNum, maxNum);
         }
-        // 根据状态来查询
-        Integer status = teamQuery.getStatus();
-        TeamStatusEnum teamStatusEnum = TeamStatusEnum.getTeamStatusEnum(status);
-        if (teamStatusEnum == null) {
-            teamStatusEnum = TeamStatusEnum.PUBLIC;
+        //是否忽略队伍状态
+        Boolean isJudgeTeamState = teamQuery.getIsJudgeTeamState();
+        if (isJudgeTeamState!=null&&isJudgeTeamState==true){
+            //需要根据状态查询
+            Integer status = teamQuery.getStatus();
+            TeamStatusEnum teamStatusEnum = TeamStatusEnum.getTeamStatusEnum(status);
+            if (teamStatusEnum == null) {
+                teamStatusEnum = TeamStatusEnum.PUBLIC;
+            }
+            //只有管理员才能搜索私有的队伍
+            if (!userService.isAdmin(request) && teamStatusEnum.equals(TeamStatusEnum.PRIVATE)) {
+                throw new BusinessException(ErrorCode.NOT_AUTH);
+            }
+            teamLambdaQueryWrapper.eq(Team::getStatus, teamStatusEnum.getValue());
         }
-        //只有管理员才能搜索私有的队伍
-        if (!userService.isAdmin(request) && teamStatusEnum.equals(TeamStatusEnum.PRIVATE)) {
-            throw new BusinessException(ErrorCode.NOT_AUTH);
-        }
-        teamLambdaQueryWrapper.eq(Team::getStatus, teamStatusEnum.getValue());
         //不展示过期的队伍
         // expireTime is null or expireTime > now()
         teamLambdaQueryWrapper.ge(Team::getExpireTime, new Date());
@@ -222,15 +248,15 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
     }
 
     @Override
-    public boolean isTeamLeader(long teamId,Long userId) {
-        if (teamId<=0){
+    public boolean isTeamLeader(long teamId, Long userId) {
+        if (teamId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (userId == null||userId<=0){
+        if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         LambdaQueryWrapper<Team> teamLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        teamLambdaQueryWrapper.eq(Team::getUserId,userId).eq(Team::getId,teamId);
+        teamLambdaQueryWrapper.eq(Team::getUserId, userId).eq(Team::getId, teamId);
         Team team = teamMapper.selectOne(teamLambdaQueryWrapper);
         return team != null;
     }
@@ -254,16 +280,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         }
         //4. 是否是队长
         User loginUser = userService.getLoginUser(request);
-        if (!team.getUserId().equals(loginUser.getId())){
-            throw new BusinessException(ErrorCode.NOT_AUTH,"您不是队长,无法解散队伍");
+        if (!team.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NOT_AUTH, "您不是队长,无法解散队伍");
         }
         //5. 删除队伍&&删除所有加入队伍的关联信息
         int i = teamMapper.deleteById(teamId);
-        if (i<0) {
+        if (i < 0) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除队伍失败");
         }
         LambdaQueryWrapper<UserTeam> userTeamLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        userTeamLambdaQueryWrapper.eq(UserTeam::getTeamId,teamId);
+        userTeamLambdaQueryWrapper.eq(UserTeam::getTeamId, teamId);
         boolean result = userTeamService.remove(userTeamLambdaQueryWrapper);
         if (!result) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除队伍关联信息失败");

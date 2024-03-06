@@ -7,6 +7,7 @@ import com.jiamian.huobanpipeibackend.common.ResultUtil;
 import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.model.request.UserTeamAddRequest;
+import com.jiamian.huobanpipeibackend.model.request.UserTeamDeleteRequest;
 import com.jiamian.huobanpipeibackend.service.UserService;
 import com.jiamian.huobanpipeibackend.service.UserTeamService;
 import org.springframework.web.bind.annotation.*;
@@ -46,9 +47,9 @@ public class UserTeamController {
         return ResultUtil.success(true);
     }
 
-    @PutMapping("/delete")
-    public BaseResponse<Boolean> deleteUserTeam(Long teamId,HttpServletRequest request){
-        if (teamId == null||teamId<=0){
+    @DeleteMapping("/delete")
+    public BaseResponse<Boolean> deleteUserTeam( Long teamId, HttpServletRequest request){
+        if (teamId == null||teamId <=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请输入正确的队伍id");
         }
         if (request==null){

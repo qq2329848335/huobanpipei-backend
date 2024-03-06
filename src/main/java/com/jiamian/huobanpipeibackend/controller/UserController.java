@@ -76,7 +76,7 @@ public class UserController {
 
     @PostMapping("/userLogout")
     public BaseResponse<Integer> userLogout(HttpServletRequest request) {
-        if (request == null){
+        if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         int result = userService.userLogout(request);
@@ -84,12 +84,12 @@ public class UserController {
     }
 
     @GetMapping("/search/tagsAnd")
-    public BaseResponse<List<User>> searchUserByTagsAnd(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
-        if (request == null){
+    public BaseResponse<List<User>> searchUserByTagsAnd(@RequestParam(value = "tagList", required = false) List<String> tagList, HttpServletRequest request) {
+        if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (CollectionUtils.isEmpty(tagList)){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
+        if (CollectionUtils.isEmpty(tagList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索标签不能为空");
         }
         //校验是否已登录
         //userService.checkIsLogin(request);
@@ -98,12 +98,12 @@ public class UserController {
     }
 
     @GetMapping("/search/tagsOr")
-    public BaseResponse<List<User>> searchUserByTagsOr(@RequestParam(value = "tagList",required=false) List<String> tagList,HttpServletRequest request) {
-        if (request == null){
+    public BaseResponse<List<User>> searchUserByTagsOr(@RequestParam(value = "tagList", required = false) List<String> tagList, HttpServletRequest request) {
+        if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (CollectionUtils.isEmpty(tagList)){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"搜索标签不能为空");
+        if (CollectionUtils.isEmpty(tagList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索标签不能为空");
         }
         //判断是否已登录
         //userService.checkIsLogin(request);
@@ -112,34 +112,57 @@ public class UserController {
         return ResultUtil.success(userList);
     }
 
+    //todo 还没完善
     @GetMapping("/recommend")
-    public BaseResponse<Page<User>> userRecommend(long pageSize,long pageNum,HttpServletRequest request) {
+    public BaseResponse<Page<User>> userRecommend(long pageSize, long pageNum, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         //从缓存中取
-        String redisKey = String.format("yupao:user:recommend:%s",loginUser.getId());
+        String redisKey = String.format("yupao:user:recommend:%s", loginUser.getId());
         ValueOperations valueOperations = redisTemplate.opsForValue();
-        Page<User> userPage = (Page<User>)valueOperations.get(redisKey);
-        if (userPage==null){
+        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
+        if (userPage == null) {
             //无缓存,查数据库
             QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
             userPage = userService.page(new Page<User>(pageNum, pageSize), userQueryWrapper);
             //写入缓存,10s过期
             try {
-                valueOperations.set(redisKey,userPage,60000, TimeUnit.MILLISECONDS);
-            } catch (Exception e){
-                log.error("redis set key error",e);
+                valueOperations.set(redisKey, userPage, 60000, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                log.error("redis set key error", e);
             }
         }
         //脱敏
         List<User> records = userPage.getRecords();
         List<User> userList = records.stream().map(user ->
-            userService.getSafetyUser(user)
+                userService.getSafetyUser(user)
         ).collect(Collectors.toList());
         userPage.setRecords(userList);
 
         return ResultUtil.success(userPage);
     }
 
+
+    /**
+     * 匹配当前用户的相似用户(top N)
+     * @param num
+     * @param request
+     * @return
+     */
+    @GetMapping("/match")
+    public BaseResponse<List<User>> userMatch(Long num, HttpServletRequest request) {
+        if (num == null || num <= 0||request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (num > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请输入小于或等于20的num");
+        }
+        User loginUser = userService.getLoginUser(request);
+
+        //根据标签给当前用户匹配用户
+        List<User> topNUserList = userService.userMatch(num, request);
+
+        return ResultUtil.success(topNUserList);
+    }
 
 
     @GetMapping("/userSearch")
@@ -148,7 +171,7 @@ public class UserController {
         userService.checkIsLogin(request);
 
         //校验权限
-        if (!userService.isAdmin(request)){
+        if (!userService.isAdmin(request)) {
             log.info("/userSearch  无管理员权限");
             throw new BusinessException(ErrorCode.NOT_AUTH);
         }
@@ -162,12 +185,12 @@ public class UserController {
         //校验是否已登录
         userService.checkIsLogin(request);
         //校验权限
-        if (!userService.isAdmin(request)){
+        if (!userService.isAdmin(request)) {
             log.info("/userDelete  无管理员权限");
             throw new BusinessException(ErrorCode.NOT_AUTH);
         }
 
-        if (id<=0){
+        if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.removeById(id);
@@ -178,7 +201,7 @@ public class UserController {
     public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         User currentUser = (User) userObj;
-        if (currentUser==null){
+        if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         //防止   (存入登陆态的时候 -- 现在)这段时间用户信息有更改.
@@ -191,18 +214,14 @@ public class UserController {
     }
 
     @PostMapping("/update")
-    public BaseResponse<Integer> userUpdate(@RequestBody User user,HttpServletRequest request) {
+    public BaseResponse<Integer> userUpdate(@RequestBody User user, HttpServletRequest request) {
         //1.校验参数
-        if (user==null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"没有传要修改的用户");
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "没有传要修改的用户");
         }
-        return ResultUtil.success(userService.userUpdate(user,request));
+        return ResultUtil.success(userService.userUpdate(user, request));
 
     }
-
-
-
-
 
 
 }

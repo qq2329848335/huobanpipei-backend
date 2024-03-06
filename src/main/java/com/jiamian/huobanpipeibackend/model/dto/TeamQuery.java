@@ -19,6 +19,10 @@ public class TeamQuery extends PageRequest {
      */
     private Long id;
 
+    /**
+     * id 列表
+     */
+    private List<Long> idList;
 
     /**
      * 搜索关键词（同时对队伍名称和描述搜索）
@@ -49,4 +53,11 @@ public class TeamQuery extends PageRequest {
      * 0 - 公开，1 - 私有，2 - 加密
      */
     private Integer status;
+
+    /**
+     * 查询的方式
+     * 0 - 忽略队伍状态
+     * 1 - 判断队伍状态
+     */
+    private Boolean isJudgeTeamState = true;
 }

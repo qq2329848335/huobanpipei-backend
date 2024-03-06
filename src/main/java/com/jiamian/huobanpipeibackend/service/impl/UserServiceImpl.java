@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.jiamian.huobanpipeibackend.common.BaseResponse;
 import com.jiamian.huobanpipeibackend.common.ErrorCode;
 import com.jiamian.huobanpipeibackend.common.ResultUtil;
@@ -12,6 +14,7 @@ import com.jiamian.huobanpipeibackend.exception.BusinessException;
 import com.jiamian.huobanpipeibackend.mapper.UserMapper;
 import com.jiamian.huobanpipeibackend.model.entity.User;
 import com.jiamian.huobanpipeibackend.service.UserService;
+import com.jiamian.huobanpipeibackend.utils.AlgorithmUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -23,7 +26,7 @@ import org.springframework.util.DigestUtils;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -298,6 +301,89 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userPage.setRecords(userList);
 
         return ResultUtil.success(userPage);
+    }
+
+    @Override
+    public List<User> userMatch(long num, HttpServletRequest request) {
+        if (num<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = this.getLoginUser(request);
+        String loginUserTags = loginUser.getTags();
+        //取出所有的用户
+        LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        //todo 为了减小用户匹配时间,这里只匹配推荐前10000条用户
+        userLambdaQueryWrapper.le(User::getId,10000);
+        userLambdaQueryWrapper.isNotNull(User::getTags);
+        userLambdaQueryWrapper.select(User::getId,User::getTags);
+        List<User> userList = this.list(userLambdaQueryWrapper);
+        //下标 =》编辑距离(编辑距离越大,相似度就越小)
+        TreeMap<Integer, Long> map = new TreeMap<>();
+        for (int i=0;i<userList.size();i++) {
+            User user = userList.get(i);
+
+            //除掉tags为空的用户
+            String userTags = user.getTags();
+            if (StringUtils.isBlank(userTags)){
+                continue;
+            }
+
+            //排除自己
+            if (user.getId().equals(loginUser.getId())){
+                continue;
+            }
+
+            //使用编辑距离算法,进行相似度计算
+            Gson gson = new Gson();
+            List<String> loginUserTagList = gson.fromJson(loginUserTags, new TypeToken<List<String>>(){}.getType());
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>(){}.getType());
+
+            long distance = AlgorithmUtils.minDistance(loginUserTagList, userTagList);
+            map.put(i,distance);
+        }
+        // 将TreeMap转换为List
+        List<Map.Entry<Integer, Long>> sortList = new ArrayList<>(map.entrySet());
+
+        // 根据value(即编辑距离)对List进行升序排序
+        Collections.sort(sortList, new Comparator<Map.Entry<Integer, Long>>() {
+            @Override
+            public int compare(Map.Entry<Integer, Long> o1, Map.Entry<Integer, Long> o2) {
+                return o1.getValue().compareTo(o2.getValue());
+            }
+        });
+
+        //因为上面查询出的数据只有id和tags(数据不完整)
+        // 所以,需要去数据库查完整的信息
+        // 1.取出前n条 对应的id,去数据库查,
+        //  因为数据库查询得到的结果是重新排序的,并没有按原先的排序
+        // 2.所以要根据之前的排序,将完整的top N数据进行顺序
+        ArrayList<User> topNUsers = new ArrayList<>();
+        for (int i = 0; i < num; i++) {
+            Map.Entry<Integer, Long> entry = sortList.get(i);
+            topNUsers.add(this.getSafetyUser(userList.get(entry.getKey())));
+        }
+        //记录top N 条数据对应的id(排序好的)
+        ArrayList<Long> idSortList = new ArrayList<>();
+        for (User user : topNUsers) {
+            idSortList.add(user.getId());
+        }
+        //回数据库查询完整的信息
+        userLambdaQueryWrapper.in(User::getId,idSortList);
+        List<User> nuTopUserList = this.listByIds(idSortList);
+        //排序
+        ArrayList<User> finalUserList = new ArrayList<>();
+        for (Long id : idSortList) {
+            for (User user : nuTopUserList) {
+                if (user.getId().equals(id)){
+                    finalUserList.add(user);
+                    break;
+                }
+            }
+        }
+        return finalUserList;
     }
 
 
